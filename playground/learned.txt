@@ -1,0 +1,81 @@
+
+    # Product.objects returns manager object which is like a handler
+    # here Product.object.all will not return product but a query_set for sql commands
+    # it help us in making compelx query and saving main memory
+    query_set = Product.objects.all()  # get all
+
+    # the following will return an exception is nothing is returned,and needs to be handled
+
+    try:
+        product = Product.objects.get(pk=0)  # this returns object not query
+    except ObjectDoesNotExist:
+        pass
+
+    # better way to handle above code
+    # this will not return error, it will return none instead
+    product = Product.objects.filter(pk=0).first()
+
+    exists = Product.objects.filter(pk=0).exists()
+
+    # some more methods for retrieving objects /\
+
+    # filter needs key word args with some value
+    product = Product.objects.filter(unit_price__gt=20)
+    # here gt means greater than,we also have gte,lte,lt etc
+
+    product2 = Product.objects.filter(
+        Q(inventory__lt=10) | ~Q(unit_price__lt=20))
+
+    # product2 = Product.objects.select_related("collection__soneOtherField").all
+    # use prefetch_related if the relation is many to many
+    product2 = Product.objects.prefetch_related(
+        "promotions").select_related("collection").all
+    product5 = Product.objects.filter(inventory=F("collection__id"))
+    product3 = Product.objects.filter(collection__id__range=(1, 2, 3))
+
+    # for strings
+    product4 = Product.objects.filter(last_update__year=2021)
+    product4 = OrderItems.objects.values('product_id').distinct()
+
+    # order and customers
+    orderset = Order.objects.select_related(
+        "customer").prefetch_related("orderitems_set__product").order_by("-placed_at")[:5]
+
+    # using aggrigation
+    result = Product.objects.aggregate(
+        count=Count('id'), min_price=Min("unit_price"))
+
+    # using annotation to add additional attributes or create a new colomn 
+    querylist = Customer.objects.annotate(is_new=Value(True))
+
+    # using database functions
+    querylist = Customer.objects.annotate(full_name=Func(
+        F("first_name"), Value(" "), F("last_name"), function="CONCAT"))
+
+    # querylist = Concat("first_name", Value(" "), "last_name")
+    # querylist = Customer.objects.annotate(orders_count=Count("order"))
+
+    # expression wrapper
+    discounted_price = ExpressionWrapper(
+        F("unit_price")*0.8, output_field=DecimalField())
+    discount_price = Product.objects.annotate(
+        discounted_price=discounted_price)
+
+    queryset2 = TaggedItem.objects.get_tags_for(Product, 1)
+
+    collection = Collection()
+    collection.title = "Video Games"
+    collection.featured_product = Product(pk=1)
+    collection.save()
+
+    with transaction.atomic():  # this returns context manager
+        order = Order()
+        order.customer_id = 1
+        order.save()
+
+        item = OrderItems()
+        item.order = order
+        item.product_id = 1
+        item.quantity = 1
+        item.unit_price = 10
+        item.save()
